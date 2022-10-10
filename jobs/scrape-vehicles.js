@@ -65,13 +65,28 @@ const URLs = [
   {
     location: "newmarket",
     url: "https://www.nrsubaru.ca/new/WRX.html",
+    selectors: selectors.grid,
+  },
+  {
+    location: "downtown",
+    url: "https://www.subarudowntown.com/new/WRX.html",
     selectors: selectors.list,
   },
-  //   {
-  //     location: "maple",
-  //     url: "https://www.subaruofmaple.com/new-inventory/index.htm?model=Ascent",
-  //     selectors: selectors.maple,
-  //   },
+  {
+    location: "barrie",
+    url: "https://www.barriesubaru.com/new/WRX.html",
+    selectors: selectors.list,
+  },
+  {
+    location: "oakville",
+    url: "https://www.buddssubaru.com/new/WRX.html",
+    selectors: selectors.list,
+  },
+  {
+    location: "mississauga",
+    url: "https://www.subarumiss.ca/new/WRX.html",
+    selectors: selectors.list,
+  },
 ];
 
 async function scrape({ url, location, selectors }) {
