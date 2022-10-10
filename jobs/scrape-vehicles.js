@@ -2,7 +2,6 @@ require("dotenv").config();
 const axios = require("axios");
 const cheerio = require("cheerio");
 const fs = require("fs");
-const { readFile, writeFile } = require("node:fs/promises");
 const sgMail = require("@sendgrid/mail");
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
@@ -118,30 +117,50 @@ const foundVehiclesPromise = URLs.map((l) => scrape(l));
 (async () => {
   try {
     const foundVehiclesList = (await Promise.all(foundVehiclesPromise)).flat();
-
     console.log(foundVehiclesList);
 
-    const writeStream = fs.createWriteStream("./logs/new-vehicles.txt");
-    foundVehiclesList.forEach(({ name, color, location, sku }) => {
-      writeStream.write(`${location}: ${color} ${name} ${sku} \n`);
+    let data;
+
+    foundVehiclesList.forEach(({ name, color, location, sku }, i) => {
+      if (i === 0) {
+        data = `${location},${color},${name},${sku}`;
+      } else {
+        data += `\r\n${location},${color},${name},${sku}`;
+      }
     });
-    writeStream.end();
+
+    // write new scrape to file
+    fs.writeFileSync("./logs/new-vehicles.csv", data);
 
     // compare new scrape against control
-    const oldFile = await readFile("./logs/vehicles.txt", { encoding: "utf8" });
-    const newFile = await readFile("./logs/new-vehicles.txt", {
+    const oldFile = fs.readFileSync("./logs/vehicles.csv", {
+      encoding: "utf8",
+    });
+    const newFile = fs.readFileSync("./logs/new-vehicles.csv", {
       encoding: "utf8",
     });
 
     if (newFile !== oldFile) {
-      await writeFile("./logs/vehicles.txt", newFile);
+      // overwrite control
+      fs.writeFileSync("./logs/vehicles.csv", newFile);
+
+      const attachment = fs
+        .readFileSync("./logs/vehicles.csv")
+        .toString("base64");
 
       const message = {
         from: process.env.EMAIL_FROM,
         to: process.env.EMAIL_TO,
         subject: "WRX Scraper Update",
-        text: newFile,
-        html: `<p>${newFile}</p>`,
+        text: "Please find attached.",
+        attachments: [
+          {
+            content: attachment,
+            filename: "vehicles.csv",
+            type: "application/csv",
+            disposition: "attachment",
+          },
+        ],
       };
 
       await sgMail.send(message);
