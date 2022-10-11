@@ -119,30 +119,25 @@ const foundVehiclesPromise = URLs.map((l) => scrape(l));
     const foundVehiclesList = (await Promise.all(foundVehiclesPromise)).flat();
     console.log(foundVehiclesList);
 
-    let data;
+    let newData;
 
     foundVehiclesList.forEach(({ name, color, location, sku }, i) => {
       if (i === 0) {
-        data = `${location},${color},${name},${sku}`;
+        newData = `${location},${color},${name},${sku}`;
       } else {
-        data += `\r\n${location},${color},${name},${sku}`;
+        newData += `\r\n${location},${color},${name},${sku}`;
       }
     });
 
-    // write new scrape to file
-    fs.writeFileSync("./logs/new-vehicles.csv", data);
-
-    // compare new scrape against control
-    const oldFile = fs.readFileSync("./logs/vehicles.csv", {
-      encoding: "utf8",
-    });
-    const newFile = fs.readFileSync("./logs/new-vehicles.csv", {
-      encoding: "utf8",
+    // get old file
+    const vehicleFile = fs.readFileSync("./logs/vehicles.csv", {
+      encoding: "utf-8",
     });
 
-    if (newFile !== oldFile) {
+    // compare old file with new scrape
+    if (newData !== vehicleFile) {
       // overwrite control
-      fs.writeFileSync("./logs/vehicles.csv", newFile);
+      fs.writeFileSync("./logs/vehicles.csv", newData);
 
       const attachment = fs
         .readFileSync("./logs/vehicles.csv")
@@ -163,7 +158,11 @@ const foundVehiclesPromise = URLs.map((l) => scrape(l));
         ],
       };
 
+      console.log("sending email...");
+
       await sgMail.send(message);
+
+      console.log("email sent...");
     }
   } catch (e) {
     console.log(e);
