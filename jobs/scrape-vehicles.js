@@ -5,19 +5,21 @@ const fs = require("fs");
 const sgMail = require("@sendgrid/mail");
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
+// get css selectors for vehicle cards based on site layout
 const selectors = {
-  list: [
-    ".vehicle-list-cell",
-    ".vehicle-year-make-model span[itemprop=model]",
-    "td[itemprop=color]",
-    "td[itemprop=sku]",
-  ],
+  list: {
+    vehicleCard: ".vehicle-list-cell",
+    name: ".vehicle-year-make-model span[itemprop=model]",
+    color: "td[itemprop=color]",
+    sku: "td[itemprop=sku]",
+  },
   grid: [
     ".vehicle-grid-cell",
     ".vehicle-year-make-model-1 span[itemprop=model]",
     null,
     "div.vehicle-information-grid",
   ],
+  // used only for maple subaru (incomplete)
   maple: [
     ".vehicle-card-details-container",
     ".vehicle-card-title span.ddc-font-size-small",
@@ -25,7 +27,8 @@ const selectors = {
   ],
 };
 
-const URLs = [
+// contruct config obj for each dealer
+const dealerConfig = [
   {
     location: "markham",
     url: "https://www.markhamsubaru.com/new/WRX.html",
@@ -96,31 +99,35 @@ async function scrape({ url, location, selectors }) {
     // load html
     const $ = cheerio.load(data);
 
-    // select items
-    const items = $(selectors[0]);
+    // select vehicles
+    const items = $(selectors.vehicleCard);
 
+    // return array of constructed vehicle information
     return items
       .map((i, el) => {
-        const name = $(el).find(selectors[1]).text();
-        const color = $(el).find(selectors[2]).text();
-        const sku = $(el).find(selectors[3]).text();
+        const name = $(el).find(selectors.name).text();
+        const color = $(el).find(selectors.color).text();
+        const sku = $(el).find(selectors.sku).text();
         return { name, color, location, sku };
       })
       .toArray();
   } catch (e) {
-    return "error";
+    return new Error("error occured while attempting to scrape");
   }
 }
 
-const foundVehiclesPromise = URLs.map((l) => scrape(l));
+// get array of promises
+const foundVehiclesPromise = dealerConfig.map((c) => scrape(c));
 
+// send spreadsheet of found vehicles
 (async () => {
   try {
+    // get found vehicles
     const foundVehiclesList = (await Promise.all(foundVehiclesPromise)).flat();
-    console.log(foundVehiclesList);
 
     let newData;
 
+    // generate string of found vehicles + information
     foundVehiclesList.forEach(({ name, color, location, sku }, i) => {
       if (i === 0) {
         newData = `${location},${color},${name},${sku}`;
@@ -129,20 +136,24 @@ const foundVehiclesPromise = URLs.map((l) => scrape(l));
       }
     });
 
-    // get old file
+    // retrieve data from previous scrape
     const vehicleFile = fs.readFileSync("./logs/vehicles.csv", {
       encoding: "utf-8",
     });
 
-    // compare old file with new scrape
+    // compare old data with new scrape data
+    // if different, send email
+    // otherwise do nothing
     if (newData !== vehicleFile) {
-      // overwrite control
+      // overwrite previous data
       fs.writeFileSync("./logs/vehicles.csv", newData);
 
+      // get base64 encoding of new data in csv file
       const attachment = fs
         .readFileSync("./logs/vehicles.csv")
         .toString("base64");
 
+      // construct email message
       const message = {
         from: process.env.EMAIL_FROM,
         to: process.env.EMAIL_TO,
@@ -160,6 +171,7 @@ const foundVehiclesPromise = URLs.map((l) => scrape(l));
 
       console.log("sending email...");
 
+      // send email
       await sgMail.send(message);
 
       console.log("email sent...");
