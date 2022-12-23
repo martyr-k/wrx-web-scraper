@@ -13,18 +13,18 @@ const selectors = {
     color: "td[itemprop=color]",
     sku: "td[itemprop=sku]",
   },
-  grid: [
-    ".vehicle-grid-cell",
-    ".vehicle-year-make-model-1 span[itemprop=model]",
-    null,
-    "div.vehicle-information-grid",
-  ],
+  grid: {
+    vehicleCard: ".vehicle-grid-cell",
+    name: ".vehicle-year-make-model-1 span[itemprop=model]",
+    color: null,
+    sku: "div.vehicle-information-grid",
+  },
   // used only for maple subaru (incomplete)
-  maple: [
-    ".vehicle-card-details-container",
-    ".vehicle-card-title span.ddc-font-size-small",
-    "li.exteriorColor",
-  ],
+  maple: {
+    vehicleCard: ".vehicle-card-details-container",
+    name: ".vehicle-card-title span.ddc-font-size-small",
+    color: "li.exteriorColor",
+  },
 };
 
 // contruct config obj for each dealer
@@ -125,15 +125,17 @@ const foundVehiclesPromise = dealerConfig.map((c) => scrape(c));
     // get found vehicles
     const foundVehiclesList = (await Promise.all(foundVehiclesPromise)).flat();
 
-    let newData;
+    // short circuit if no vehicles found
+    if (foundVehiclesList.length === 0) {
+      return;
+    }
+
+    // set header for spreadsheet
+    let newData = "location,color,name,sku";
 
     // generate string of found vehicles + information
-    foundVehiclesList.forEach(({ name, color, location, sku }, i) => {
-      if (i === 0) {
-        newData = `${location},${color},${name},${sku}`;
-      } else {
-        newData += `\r\n${location},${color},${name},${sku}`;
-      }
+    foundVehiclesList.forEach(({ name, color, location, sku }) => {
+      newData += `\r\n${location},${color},${name},${sku}`;
     });
 
     // retrieve data from previous scrape
